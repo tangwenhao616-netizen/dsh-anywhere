@@ -4,7 +4,19 @@
 
 **Goal:** 让一个 dsh 会话的执行世界(fs+shell+search)落在一台远程 fleet 机器上,agent 原生工具在那生效,大脑仍在 hub;并支持每会话选择目标机器。
 
-**Architecture:** 一组共享同一条 SSH 连接的远程 provider(fs-ssh / shell-ssh / search-ssh)替换本地 provider;目标 = fleet 入网机器(ProxyJump)。
+**Architecture:** 一组共享同一条 SSH 连接的远程 provider(fs-ssh / subprocess-ssh / search-ssh)替换本地 provider;目标 = fleet 入网机器(ProxyJump)。
+
+## 实现状态(2026-08-18)—— 功能全实现 + 测试通过(21 测试绿,POC 仓库 dsh-fs-ssh-poc)
+
+- **M0 ✅** 调研:执行世界每实例、非每会话;要建 subprocess-ssh(非 shell-ssh)。
+- **M1 ✅** fs-ssh 硬化 + ControlMaster 连接复用(每次 stat≈41ms,根治"卡");12 fs 测试(hermetic 单测 + 真机集成)。
+- **M2 ✅** subprocess-ssh(resolveExecutable/spawn/spawnTerminal);spawn 用专用连接保证 terminate 杀远端;7 测试。
+- **M3 ✅** grep 经 subprocess-ssh 在远程搜索;agent 的 rg 工具需远程有 rg 或降级(部署细节)。
+- **M4 ✅** 合成端到端(真机验证):agent 读远程文件 + 跑远程 uname -n(得远程主机名)+ 写远程文件,全落远程。
+- **M5 ✅(每实例)** 执行世界选择 = 合成补丁 config;examples/ssh-world.patch.yml 参考。选择器 UI(M5.2)与 scope-aware 每会话(M5.3)未做。
+- **M6 ✅(机制)** fs-ssh 经 ProxyJump 双跳验证 = 接 fleet 入网机器的连法;真机 demo 需先入网一台真机。
+
+**尚未做(非核心功能):** 机器/目录选择器 UI、真实 fleet 机器 demo、进 monorepo 正式移植、spawnTerminal 远端前台组精确查询/信号(POC 基础版)。
 
 ---
 
