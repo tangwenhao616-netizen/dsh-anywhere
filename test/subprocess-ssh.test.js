@@ -59,6 +59,16 @@ test('spawn: abort → terminate,done 归位', { skip }, async () => {
   assert.equal(settled, 'done')
 })
 
+test('M3: grep 在远程文件树搜索(证 search 走 subprocess-ssh)', { skip }, async () => {
+  const tag = `SSHWORLD-${process.pid}`
+  await conn.run(`printf '%s\\n' '${tag}' > /tmp/m3-grep-${process.pid}.txt`)
+  const h = subp.spawn(spec(['grep', '-rl', '--', tag, '/tmp']))
+  await h.done
+  const hits = textOf(h.collected.stdout)
+  assert.ok(hits.includes(`/tmp/m3-grep-${process.pid}.txt`), `grep 命中:${hits}`)
+  await conn.run(`rm -f /tmp/m3-grep-${process.pid}.txt`)
+})
+
 test('spawnTerminal: 基础 PTY 输出(远程 echo)', { skip }, async () => {
   const th = await subp.spawnTerminal({ argv: ['sh', '-c', 'echo TERMOUT; exit 0'], cwd: '/tmp', rows: 24, cols: 80, graceMs: 3000 })
   let buf = ''

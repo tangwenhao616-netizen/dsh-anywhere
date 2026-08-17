@@ -1,0 +1,31 @@
+# SSH 执行世界合成补丁(参考;E2B 同款)。把一个 dsh 实例的执行世界整体搬到远程机器:
+# 禁本地 fs/subprocess provider、插 fs-ssh + subprocess-ssh(共享同一 ControlMaster 连接)、
+# sandbox 放行、cwd/workspaceRoot 统一(一世界不变式)。bash/grep/终端/LSP 自动落远程。
+#
+# 用法:cd <远程 cwd 对应的本地占位目录>;
+#       DSH_PERMISSION_MODE=danger-full-access dsh --profile headless \
+#         --patch ./ssh-world.patch.yml "任务"
+# M4 已用中继(直连 ssh)端到端验证:agent read/write/edit + bash 全落远程。
+# 接 fleet 机器:把 sshArgs 换成该机器的连法(含 -o ProxyJump=<relay-login> 经中继)。
+
+- id: fs-sandbox
+  disabled: true
+- id: subprocess
+  disabled: true
+- id: sandbox-policy
+  config:
+    mode: danger-full-access
+    workspaceRoot: /remote/workspace   # = fs-ssh/subprocess-ssh 的 cwd
+- insert:
+    - id: fs-ssh
+      name: '@your-scope/dsh-fs-ssh'    # 或本地 entry 的绝对路径
+      config:
+        login: 'user@fleet-machine'
+        sshArgs: ['-i', '~/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes', '-o', 'ProxyJump=ubuntu@YOUR_RELAY']
+        cwd: '/remote/workspace'
+    - id: subprocess-ssh
+      name: '@your-scope/dsh-subprocess-ssh'
+      config:
+        login: 'user@fleet-machine'
+        sshArgs: ['-i', '~/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes', '-o', 'ProxyJump=ubuntu@YOUR_RELAY']
+        cwd: '/remote/workspace'
