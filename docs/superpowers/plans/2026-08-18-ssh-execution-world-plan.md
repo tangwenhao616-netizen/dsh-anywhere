@@ -8,15 +8,18 @@
 
 ---
 
-## M0 — 先调研两个决定成败的未知(动手前必做)
+## M0 — 调研结论(2026-08-18,已完成)✅
 
-### Task 0.1: E2B 执行世界是全局还是每会话?
-- 读 `packages/e2b/*` + `.agents/notes/**/2026-07-28-portable-execution-world-consumers.md`。
-- 产出:dsh 里 fs/shell provider 能否**会话级作用域**;若只能 profile 级 → M5 需要引入会话级机制或"每机器一 profile"的降级方案。**这决定 M5 可行性,先答。**
+### 0.1 执行世界是**每实例**,不是每会话
+- `ctx.fs` + `ctx.subprocess` **合起来定义一个执行世界**;bash/终端/LSP/grep 是只消费这两个接口的 **provider-neutral consumer**(见 note `2026-07-28-portable-execution-world-consumers.md`)。
+- E2B 挂法(`examples/headless-agent/e2b.cordis.yml`)= **全局**禁 `fs-local`+`subprocess-local`、插 `e2b`(sandbox owner)+`fs-e2b`+`subprocess-e2b`,整个实例执行世界搬远程。**"一世界不变式"**:`fs.cwd == subprocess.cwd == sandbox.workspaceRoot` 必须同指一个远程目录。
+- **结论**:fs/subprocess 是实例级服务,**每会话混合世界(有的本地有的远程)当前不支持**,要支持须把这两个 seam 改成 scope-aware(`dsh-scope` 有 per-agent 作用域,但 fs/subprocess 未 scope-aware)——那是 dsh 核心大改。
+- **对计划的影响**:**M5 改为「每实例执行世界」作为出货形态**(E2B 同款,已证);"每会话切换 / 1.44 与远程并存"= **跑两个 dsh 实例**(或切实例的世界),per-session 混合列为**未来核心增强**(scope-aware fs/subprocess),单独立项。
 
-### Task 0.2: shell/subprocess Service Definition 契约
-- 读 `packages/shell/*`、`packages/subprocess/*`(Service Definition + local provider + Consumer)。
-- 产出:shell-ssh 要实现的方法清单(exec/spawn/PTY/信号/cwd/env),对照 dsh-ssh 现有 exec 引擎能复用多少。
+### 0.2 要建的是 **subprocess-ssh**(不是 shell-ssh)
+- `ctx.subprocess` = `SubprocessRuntime extends Service`,三抽象方法:`resolveExecutable(...)`、`spawn(spec): SubprocessHandle`、`spawnTerminal(spec): Promise<SubprocessTerminalHandle>`(PTY:文本 I/O + 前台进程组 + 信号 + TERM→KILL 静默)。
+- 做好 fs-ssh + subprocess-ssh 两个 provider,**bash/grep/终端/LSP 自动落远程**(它们 provider-neutral)。`spawnTerminal` 走 `ssh -tt` 的 PTY;可复用 dsh-ssh 的 ssh2 shell/PTY 引擎。
+- **SSH 世界 = 三包**(同 E2B 结构):`ssh-world`(SSH 连接 owner + ControlMaster 复用)+ `fs-ssh`(ctx.fs)+ `subprocess-ssh`(ctx.subprocess)。
 
 ---
 
@@ -39,13 +42,16 @@
 
 ---
 
-## M2 — shell-ssh(bash 远程)
+## M2 — subprocess-ssh(`ctx.subprocess` 远程;bash/终端/LSP 自动落远程)
 
-### Task 2.1: `shell-ssh` provider
-- Create `packages/ssh-world/shell-ssh/`:实现 `ctx.shell`(或 subprocess)Service Definition(M0.2 定的方法),经 ssh exec/PTY 在远程跑命令;复用 dsh-ssh 的 ssh2 exec 引擎或系统 ssh(与 fs-ssh 共享 ControlMaster 连接)。
-- cwd/env/信号/退出码/流式 stdout-stderr。
+### Task 2.1: `subprocess-ssh` provider(实现 `ctx.subprocess` = SubprocessRuntime 三方法)
+- Create `packages/ssh-world/subprocess-ssh/`:`class extends SubprocessRuntime`:
+  - `resolveExecutable`:远程 `command -v` / PATH 查找。
+  - `spawn(spec): SubprocessHandle`:远程进程(raw/collected),经共享 SSH 连接跑;stdout/stderr 流、退出码、信号、cwd、env。
+  - `spawnTerminal(spec): Promise<SubprocessTerminalHandle>`:PTY —— `ssh -tt` 控制终端;文本 I/O、前台进程组查询/信号、TERM→KILL 静默。复用 dsh-ssh 的 ssh2 shell/PTY 引擎。
+- 与 fs-ssh 共享同一条 SSH 连接 + 同一远程 cwd(遵守"一世界不变式")。
 
-**M2 验收**:agent 的 `bash` 工具在远程机器执行(如 `bash: uname -a` 返回远程主机信息);cwd 与 fs-ssh 的工作区一致。
+**M2 验收**:agent 的 `bash` 在远程执行(`uname -a` 返回远程主机);持久终端(tool-terminal)在远程可用;cwd 与 fs-ssh 工作区一致。bash/grep/终端/LSP provider-neutral,自动落远程。
 
 ---
 
@@ -68,16 +74,21 @@
 
 ---
 
-## M5 — 每会话执行世界 + 远程目录选择器(核心 UX)
+## M5 — 每实例执行世界 + 机器/目录选择(出货形态;per-session 为未来核心增强)
 
-### Task 5.1: 会话级执行世界选择(依赖 M0.1 结论)
-- 若会话级 provider 作用域可行:会话创建时选 target(机器 X + 目录),该会话的 fs/shell/search 挂 SSH 版,其余会话保持本地。
-- 若不可行:降级为"每台机器一个 profile",UX 上用 profile 切换代替会话切换。
+> M0.1 结论:fs/subprocess 是实例级、非 scope-aware,**每会话混合世界当前不支持**。出货先做每实例。
 
-### Task 5.2: 远程目录选择器
-- 扩展 directory-picker seam:列举/选择一台 fleet 机器上的目录(经 ssh);选定即把该会话执行世界指向 machine X 的该目录。
+### Task 5.1: 每实例执行世界(E2B 同款)
+- 一个 dsh 实例的执行世界 = 一台选定机器:profile 模板/开关选 target(机器 X + 远程 cwd),整实例 fs/subprocess → 该机器,遵守一世界不变式。
+- **"1.44 与远程并存"** = 跑两个 dsh 实例(1.44 本地 profile + 远程世界 profile),或切实例 target。
 
-**M5 验收**:一个 dsh 里,新建会话可选"本地(1.44)"或"某台 fleet 机器"的工作区;两类会话并存,各自工具落在各自机器。
+### Task 5.2: 机器/目录选择器
+- 启动/切换时选 target 机器(fleet 已入网列表)+ 远程目录(经 ssh 列),写进该实例执行世界配置。
+
+### Task 5.3(未来核心增强,单独立项):scope-aware fs/subprocess → 真·每会话混合世界
+- 把 fs/subprocess seam 改成 scope-aware(基于 `dsh-scope` per-agent 作用域),让不同会话用不同执行世界。dsh 核心大改,风险/工作量大,不在本计划范围。
+
+**M5 验收**:选一台机器 → 该 dsh 实例整个工作区落在它上面,agent 用 hub 模型在它文件/进程上干活;并存靠多实例。
 
 ---
 

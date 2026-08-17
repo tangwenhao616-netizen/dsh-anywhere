@@ -4,6 +4,10 @@
 - 状态:POC 已端到端验证;本文为产品化设计
 - 前置:POC(`~/twh/workspace/dsh-fs-ssh-poc`)已证 Level-1(fs-ssh 对真实远程机读写改列 + 版本守卫)与 Level-2(挂进真实 dsh boot,agent 的 read/write 工具作用在远程机器,中继实地核实)。
 
+> **M0 调研结论(2026-08-18,修正本设计)**——详见 plan 的「M0 调研结论」:
+> 1. **执行世界是每实例,非每会话**:`ctx.fs`+`ctx.subprocess` 合为一个执行世界,E2B 全局禁本地 provider、插远程 provider(带"一世界不变式":fs.cwd==subprocess.cwd==sandbox.root)。fs/subprocess 非 scope-aware → **出货形态为每实例执行世界**;"1.44 与远程并存"跑两个 dsh 实例;真·每会话混合世界须把 seam 改 scope-aware(核心大改,单独立项)。下文凡"每会话"按此修正。
+> 2. **要建 subprocess-ssh(非 shell-ssh)**:`ctx.subprocess`=`resolveExecutable`+`spawn`+`spawnTerminal(PTY)`;bash/grep/终端/LSP 是 provider-neutral consumer,做好 fs-ssh+subprocess-ssh 即**自动落远程**。SSH 世界=三包(ssh-world owner + fs-ssh + subprocess-ssh),同 E2B 结构。下文"shell-ssh"即指 subprocess-ssh。
+
 ## 1. 目标
 
 让**一套 dsh 大脑**(模型/配置/记忆/技能都在 hub)的**一个会话的"执行世界"落在一台远程机器上**——agent 的原生工具(`read/write/edit/ls/bash/glob/grep`)透明地在那台机器的文件与进程上运行,而推理仍用 hub 的模型。配合**每会话选择**,同一个 dsh 可以:在异地电脑本地建工作区干活,同时能切到 1.44 本地工作区。把"hub 操作异地机器"与"异地用 hub 的模型"两个方向,在**执行世界(execution world)**这一层统一。
