@@ -1,0 +1,14 @@
+# fs-ssh POC 挂载补丁(用于一个独立 POC profile,别加进日常 web profile)。
+# 禁掉 base bundle 的 fs-sandbox(默认 ctx.fs provider),换成 fs-ssh 指向一台远程机器;
+# ctx.fs 即由 SSH 后端承接,agent 的 read/write/edit/ls 工具透明作用在远程文件上。
+#
+# 用法示例(在某个 POC profile 的 cordis.patch.yml 里):
+- id: fs-sandbox
+  disabled: true
+- insert:
+    - id: fs-ssh
+      name: dsh-fs-ssh-poc
+      config:
+        login: 'ubuntu@175.24.133.218'
+        sshArgs: ['-i', '/home/wl/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new']
+        cwd: '/tmp'

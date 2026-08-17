@@ -1,0 +1,14 @@
+{
+  "name": "dsh-fs-ssh-poc",
+  "description": "POC: SSH-backed dsh FileSystem (ctx.fs). The agent's read/write/edit/ls tools operate on a REMOTE machine's files over the system ssh CLI (base64-into-remote-script, zero deps). Foundation for 'dsh workspace on a fleet machine' (the SSH execution world).",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js" },
+  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "scripts": {
+    "probe:relay": "node test/probe-relay.mjs"
+  },
+  "license": "MIT"
+}
