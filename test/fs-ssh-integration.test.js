@@ -57,6 +57,25 @@ test('缺文件 stat→undefined、readText→FS_NOT_FOUND', { skip }, async () 
   await assert.rejects(() => core.readText(t), e => e.code === 'FS_NOT_FOUND')
 })
 
+test('M6: fs-ssh 经 ProxyJump 双跳(hub→中继→目标)工作 —— 即接 fleet 入网机器的连法', { skip }, async () => {
+  // 用中继当跳板、中继自己的 127.0.0.1 当"目标机",走两跳(等价 hub→中继→fleet机器)。
+  const viaJump = new SshFsCore({
+    conn: new SshConn({
+      login: 'ubuntu@127.0.0.1',
+      sshArgs: ['-i', '/home/wl/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ProxyJump=ubuntu@175.24.133.218'],
+    }),
+    cwd: '/tmp',
+  })
+  const name = `dsh-m6-${process.pid}.txt`
+  const t = await viaJump.resolve(name)
+  await viaJump.writeText(t, 'via-proxyjump\n')
+  assert.equal(await viaJump.readText(t), 'via-proxyjump\n')
+  const st = await viaJump.stat(t)
+  assert.equal(st.type, 'file')
+  await viaJump.conn.run(`rm -f -- '/tmp/${name}'`)
+})
+
 test('ControlMaster 连接复用:20 次 stat 明显快于逐次新连(无握手)', { skip }, async () => {
   const t = await core.resolve('/tmp')
   const start = process.hrtime.bigint()
