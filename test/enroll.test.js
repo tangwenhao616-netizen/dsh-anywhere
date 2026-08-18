@@ -58,6 +58,23 @@ test('rejects an already-consumed token', async () => {
   } finally { c.cleanup() }
 })
 
+test('重入网复用原端口(端口不漂移;真机踩坑:授权行/主机条目/机器配置三方错位)', async () => {
+  const c = ctx()
+  try {
+    const prov = new FakeProvisioner()
+    const deps = { store: c.store, provisioner: prov, sshStorePath: c.sshPath }
+    const r1 = await enrollCore(deps, { alias: 'pc', os: 'win', remoteUser: 'u', tunnelPublicKey: 'k1' }, 1000)
+    assert.equal(r1.port, 20001)
+    // 同名机器再入网(重装系统等)→ 端口保持 20001,不是 20002
+    const r2 = await enrollCore(deps, { alias: 'pc', os: 'win', remoteUser: 'u', tunnelPublicKey: 'k2' }, 2000)
+    assert.equal(r2.port, 20001, '复用原端口')
+    assert.equal(c.store.load().machines.length, 1, '仍只有一条记录')
+    // 另一台新机器 → 正常分配下一个
+    const r3 = await enrollCore(deps, { alias: 'pc2', os: 'linux', remoteUser: 'u', tunnelPublicKey: 'k3' }, 3000)
+    assert.equal(r3.port, 20002)
+  } finally { c.cleanup() }
+})
+
 test('second machine gets the next port', async () => {
   const c = ctx()
   try {
