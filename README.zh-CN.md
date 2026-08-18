@@ -111,6 +111,8 @@ DSH_PERMISSION_MODE=danger-full-access \
 
 **一世界不变式:** `fs.cwd` == `subprocess.cwd`(补丁 `config.cwd`)== `sandbox-policy.workspaceRoot` == 会话工作区,必须**同指一个远程目录**;否则相对路径与命令 cwd 会落到远端不存在的路径而报 spawn 失败。
 
+**Windows 远端:** 远端是 Windows(OpenSSH + PowerShell)时,给 `ssh-world` config 加 `platform: windows`——fs/subprocess 改走 **PowerShell 后端**(全 base64、二进制安全)——并把 `cwd` / `workspaceRoot` 用 Windows 路径(如 `C:\Users\you\work`)。默认 `platform: posix`(Linux/macOS)。已对真实 Windows 主机端到端验证。注意:Windows OpenSSH 会把非零退出码塌掉,精确码经带外标记还原;远端有 `rg` 才能让 `grep` 满速。
+
 **每实例,非每会话:** dsh 执行世界是每实例的(`ctx.fs`/`ctx.subprocess` 非 scope-aware)。要同时用本地与远程工作区,就**跑两个 dsh 实例**(一个本地 profile、一个 world profile)。fleet 模式不受此限 —— 入网机器是 dsh-ssh 主机,可与本地工作区并存。
 
 ## 已知限制(POC 阶段)

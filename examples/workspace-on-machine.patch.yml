@@ -15,7 +15,11 @@
 #        dsh --profile <你的profile> --patch ./workspace-on-machine.patch.yml "任务"
 #      (会话 cwd 须与下面的 cwd / workspaceRoot 同指一个远程目录)
 #
-# 已验证:agent 的 read/write/edit + bash + grep 全部落在远程机器(真机端到端)。
+# 已验证:agent 的 read/write/edit + bash + grep 全部落在远程机器(真机端到端,Linux 与 Windows 均验证)。
+#
+# Windows 远端:远端是 Windows(OpenSSH + PowerShell)时,给 config 加 platform: 'windows'
+#   (fs/subprocess 走 PowerShell 后端),且 cwd / workspaceRoot 用 Windows 路径(如 'C:\Users\you')。
+#   见文末的 Windows 示例。默认 platform: 'posix'(Linux/macOS)。
 
 - id: fs-sandbox
   disabled: true
@@ -40,3 +44,18 @@
           - '-o'
           - 'ProxyJump=ubuntu@YOUR_RELAY'  # 经中继够到 fleet 入网机器;直连机器则删这两行
         cwd: '/remote/workspace'
+        # platform: 'posix'                 # 默认;Windows 远端改成 'windows'
+
+# ── Windows 远端示例(把上面 sandbox-policy.workspaceRoot 与 config.cwd 换成 Windows 路径)──
+# - id: sandbox-policy
+#   config:
+#     mode: danger-full-access
+#     workspaceRoot: 'C:\Users\you\work'    # = 下面的 cwd(Windows 路径)
+# - insert:
+#     - id: ssh-world
+#       name: dsh-anywhere/world
+#       config:
+#         login: 'user@win-machine'          # 或 fleet-* 机器,sshArgs 走 ProxyJump
+#         sshArgs: ['-i','~/.ssh/id_rsa','-o','IdentitiesOnly=yes','-o','BatchMode=yes']
+#         cwd: 'C:\Users\you\work'
+#         platform: 'windows'                # ← 关键:走 PowerShell 后端

@@ -111,6 +111,8 @@ See Quick Start 2a. What `world` provides:
 
 **One-world invariant:** `fs.cwd` == `subprocess.cwd` (the patch's `config.cwd`) == `sandbox-policy.workspaceRoot` == the session workspace — they must all point at the **same remote directory**, or relative paths and command cwds land on a path that doesn't exist remotely and spawns fail.
 
+**Windows remotes:** if the remote is Windows (OpenSSH + PowerShell), add `platform: windows` to the `ssh-world` config — fs/subprocess then run on a PowerShell backend (base64-framed, binary-safe) — and use Windows paths for `cwd` / `workspaceRoot` (e.g. `C:\Users\you\work`). Default is `platform: posix` (Linux/macOS). Validated end-to-end against a real Windows host. Note: Windows OpenSSH collapses non-zero exit codes, so the exact code is recovered out-of-band; a remote `rg` still helps `grep` speed.
+
 **Per-instance, not per-session:** a dsh execution world is per-instance (`ctx.fs`/`ctx.subprocess` are not scope-aware). To use a local workspace *and* a remote one at the same time, run **two dsh instances** (one local profile, one world profile). fleet mode has no such limit — an enrolled machine is a `dsh-ssh` host that coexists with your local workspace.
 
 ## Known limits (POC stage)
