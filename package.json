@@ -1,7 +1,7 @@
 {
   "name": "dsh-anywhere",
   "description": "Put a dsh (DeepSeek Harness) workspace on ANY machine. Two modes in one plugin: (1) fleet — enroll an off-site machine behind NAT into your dph via a one-time token + reverse tunnel to your own relay VPS, so it appears as a dsh-ssh host; (2) execution world — make a reachable machine the session's ctx.fs + ctx.subprocess so read/write/edit/bash/grep operate on it natively, while the model and memory stay on the hub. Bring a NAT'd machine in with fleet, then promote it to your workspace with the world patch. Zero external npm deps (system ssh CLI); dsh-fs / dsh-subprocess are peers provided by the harness.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "lib/fleet.js",
   "exports": {
