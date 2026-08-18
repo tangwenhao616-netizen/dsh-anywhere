@@ -25,11 +25,20 @@ test('win bootstrap: frp 路径(解析 FrpToken + 下载 frpc.exe + 写 frpc.tom
   assert.ok(s.includes('/api/fleet/frpc?os=win'), '下载 frpc.exe')
   assert.ok(s.includes('loginFailExit = false'), '断线不退出、持续重连')
   assert.ok(s.includes('name = "dsh-fleet-'), '代理名按端口唯一')
-  assert.ok(s.includes('New-ScheduledTaskAction -Execute $frpcExe'), '计划任务跑 frpc')
+  assert.ok(s.includes('$TunExe = $frpcExe'), 'frp 分支产出统一 TunExe(计划任务/Startup/当次拉起共用)')
   assert.ok(s.includes('Set-Content'), '写 frpc.toml')
   // frp 分支同样不得引入反引号或 ${...}
   assert.ok(!s.includes('`'), '无反引号')
   assert.ok(!s.includes('${'), '无 ${...}')
+})
+
+test('win bootstrap: 三个真机坑的固化(提权检查/任务禁用回退/当次拉起)', () => {
+  const s = renderWinBootstrap({ baseUrl: 'https://d.trycloudflare.com' })
+  assert.ok(s.includes('S-1-5-32-544'), '管理员组成员+未提权 → 明确拒绝(防静默写错授权文件)')
+  assert.ok(s.includes('以管理员身份运行'), '提权指引')
+  assert.ok(s.includes('schtasks /Change'), '任务 Disabled 先试强制启用')
+  assert.ok(s.includes('dsh-fleet-tunnel.cmd'), '策略禁死任务 → Startup 文件夹回退')
+  assert.ok(s.includes('Start-Process $TunExe'), '当次连通直接拉起进程,不依赖任务')
 })
 
 test('rejects bad baseUrl', () => {
