@@ -23,11 +23,15 @@
 
 ## 安装
 
+已发布到 npm([**`dsh-anywhere`**](https://www.npmjs.com/package/dsh-anywhere)):
+
 ```sh
 dsh plugin --profile <你的profile> add dsh-anywhere
 ```
 
 装上即启用 **fleet**:`/fleet` 管理面板 + `/join`、`/api/fleet/*` 路由 + 一段面向 agent 的组网说明。**world** 是每会话按需挂载(见下)。
+
+> **⚠️ 安装方式注意(务必正式安装,别 `link:`)**:boot 时 `--patch` 里的 `name:` 是**相对 profile 目录**解析的。用 `link:` 开发装时,**world 半边**会因 `@deepseek-ai/dsh-fs` peer 从仓库 realpath 解析不到而报 `ERR_MODULE_NOT_FOUND`。两条正路:①正式安装(`dsh plugin add` / `npm i`,peer 由 dsh 运行时/profile 提供);②手动放置——把**真实目录** `dsh-anywhere` 放进 `<profile>/node_modules/`,并把 `@deepseek-ai/dsh-fs`、`@deepseek-ai/dsh-subprocess` 软链进 `<profile>/node_modules/@deepseek-ai/`(同一 realpath 才能保证 `extends FileSystem` 用的是同一个类)。**fleet 半边零依赖,`link:` 可正常用。**
 
 ## 模式一:fleet 组网(把异地机器拉进来)
 
