@@ -19,6 +19,10 @@
   "scripts": {
     "test": "node --test"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tangwenhao616-netizen/dsh-anywhere.git"
