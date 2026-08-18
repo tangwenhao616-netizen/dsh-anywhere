@@ -39,6 +39,15 @@ test('descFromFleetMachine: Windows fleet 机器(经中继 ProxyCommand 双密�
   assert.ok(d.sshArgs.some(a => a.includes('ProxyCommand=ssh -i /k/id_rsa') && a.includes('ubuntu@1.2.3.4')), 'ProxyCommand 双密钥经中继')
 })
 
+test('buildWorldPatch: 传 port 覆盖 webserver 端口 + 绑 127.0.0.1(避开主 dph 3080)', () => {
+  const p = buildWorldPatch({ login: 'u@h', sshArgs: [], cwd: '/tmp' }, 34567)
+  assert.ok(p.includes('- id: webserver'), 'webserver 覆盖项')
+  assert.ok(p.includes('port: 34567'), '端口')
+  assert.ok(p.includes("host: '127.0.0.1'"), '绑 loopback')
+  // 不传 port 则无覆盖(默认用 profile 的)
+  assert.ok(!buildWorldPatch({ login: 'u@h', sshArgs: [], cwd: '/tmp' }).includes('- id: webserver'))
+})
+
 test('descFromFleetMachine: posix 直连机器(无 proxyJump → 无 ProxyCommand)', () => {
   const d = descFromFleetMachine({ os: 'linux' }, { host: '10.0.0.5', port: 22, user: 'bob', auth: { keyPath: '/k' }, proxyJump: [] }, null)
   assert.equal(d.platform, 'posix')
