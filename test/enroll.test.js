@@ -122,3 +122,41 @@ test('enrollCore rejects when relay not configured', async () => {
     assert.equal(res.reason, 'relay-not-configured')
   } finally { c.cleanup() }
 })
+
+test('frp 模式:relay 配了 frpToken → 结果带 frp 字段、transport=frp、不推隧道密钥到中继', async () => {
+  const c = ctx()
+  try {
+    c.store.update(f => { f.relay = { ...f.relay, frpToken: 'SECRET_FRP_TOK', frpPort: 443, frpProtocol: 'tcp' } })
+    const prov = new FakeProvisioner()
+    const res = await enrollCore({ store: c.store, provisioner: prov, sshStorePath: c.sshPath },
+      { alias: 'frp-pc', os: 'win', remoteUser: 'zyl', tunnelPublicKey: 'ssh-ed25519 AAAA frp' }, 2000)
+    assert.equal(res.ok, true)
+    assert.equal(res.frpToken, 'SECRET_FRP_TOK')
+    assert.equal(res.frpServerPort, 443)
+    assert.equal(res.frpProtocol, 'tcp')
+    assert.equal(res.relayHost, 'relay.example', 'frpServerAddr 复用 relayHost')
+    assert.equal(res.port, 20001, 'remotePort 复用 port')
+    assert.deepEqual(prov.pushed, [], 'frp 不调 pushTunnelKey')
+    const m = c.store.load().machines[0]
+    assert.equal(m.transport, 'frp')
+    // dsh-ssh 主机条目不变:仍 127.0.0.1:port 经 ProxyJump
+    const ssh = JSON.parse(readFileSync(c.sshPath, 'utf8'))
+    assert.equal(ssh.hosts[0].host, '127.0.0.1')
+    assert.equal(ssh.hosts[0].port, 20001)
+    assert.deepEqual(ssh.hosts[0].proxyJump, ['relay-jump'])
+  } finally { c.cleanup() }
+})
+
+test('legacy 模式:relay 无 frpToken → 无 frp 字段、transport=ssh-r、推隧道密钥', async () => {
+  const c = ctx()
+  try {
+    const prov = new FakeProvisioner()
+    const res = await enrollCore({ store: c.store, provisioner: prov, sshStorePath: c.sshPath },
+      { alias: 'legacy-pc', os: 'linux', remoteUser: 'wl', tunnelPublicKey: 'ssh-ed25519 AAAA legacy' }, 2000)
+    assert.equal(res.ok, true)
+    assert.equal(res.frpToken, undefined, '无 frp 字段')
+    assert.equal(res.frpServerPort, undefined)
+    assert.deepEqual(prov.pushed, [{ pubkey: 'ssh-ed25519 AAAA legacy', port: 20001 }], 'legacy 推隧道密钥')
+    assert.equal(c.store.load().machines[0].transport, 'ssh-r')
+  } finally { c.cleanup() }
+})

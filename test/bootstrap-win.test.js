@@ -18,6 +18,20 @@ test('win bootstrap: request flow + admin authorized_keys + scheduled task + Ide
   assert.ok(!s.includes('${'))
 })
 
+test('win bootstrap: frp 路径(解析 FrpToken + 下载 frpc.exe + 写 frpc.toml + 计划任务跑 frpc)', () => {
+  const s = renderWinBootstrap({ baseUrl: 'https://d.trycloudflare.com' })
+  assert.ok(s.includes('$FrpToken = $result.frpToken'), '解析 frpToken')
+  assert.ok(s.includes('if ($FrpToken)'), 'frp-或-sshR 分支')
+  assert.ok(s.includes('/api/fleet/frpc?os=win'), '下载 frpc.exe')
+  assert.ok(s.includes('loginFailExit = false'), '断线不退出、持续重连')
+  assert.ok(s.includes('name = "dsh-fleet-'), '代理名按端口唯一')
+  assert.ok(s.includes('New-ScheduledTaskAction -Execute $frpcExe'), '计划任务跑 frpc')
+  assert.ok(s.includes('Set-Content'), '写 frpc.toml')
+  // frp 分支同样不得引入反引号或 ${...}
+  assert.ok(!s.includes('`'), '无反引号')
+  assert.ok(!s.includes('${'), '无 ${...}')
+})
+
 test('rejects bad baseUrl', () => {
   assert.throws(() => renderWinBootstrap({ baseUrl: "https://x';rm" }), /invalid baseUrl/)
 })

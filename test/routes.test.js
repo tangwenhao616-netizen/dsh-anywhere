@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -104,6 +104,56 @@ test('POST /api/fleet/relay sets the relay config', async () => {
     assert.equal(c.store.load().relay.host, '203.0.113.9')
     assert.equal(c.store.load().relay.jumpLogin, 'ubuntu@203.0.113.9')
   } finally { c.cleanup() }
+})
+
+test('POST /api/fleet/relay 带 frp 参数;未带则保留现值', async () => {
+  const c = ctx()
+  try {
+    const r1 = res()
+    await c.byPath['/api/fleet/relay'](req({ method: 'POST', url: '/api/fleet/relay', origin: 'http://127.0.0.1:3080',
+      body: { host: '203.0.113.9', frpToken: 'TOK123', frpPort: 443, frpProtocol: 'tcp' } }), r1)
+    assert.equal(c.store.load().relay.frpToken, 'TOK123')
+    assert.equal(c.store.load().relay.frpPort, 443)
+    // 再设一次不带 frp 字段 → 保留
+    const r2 = res()
+    await c.byPath['/api/fleet/relay'](req({ method: 'POST', url: '/api/fleet/relay', origin: 'http://127.0.0.1:3080',
+      body: { host: '203.0.113.9', jumpLogin: 'ubuntu@203.0.113.9' } }), r2)
+    assert.equal(c.store.load().relay.frpToken, 'TOK123', 'frpToken 保留')
+    assert.equal(c.store.load().relay.frpPort, 443, 'frpPort 保留')
+  } finally { c.cleanup() }
+})
+
+test('GET /api/fleet/frpc 托管二进制(经隧道可下);缺失 404;裸 LAN 403', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'frpc-'))
+  try {
+    const store = new FleetStore(join(dir, 'dsh-fleet.json'))
+    store.update(f => { f.relay = { host: 'relay.example', port: 22, tunnelUser: 'tunnel', jumpAlias: 'relay-jump', jumpLogin: '', portRange: [20001, 20999] } })
+    const frpDir = join(dir, 'frp'); mkdirSync(frpDir, { recursive: true })
+    writeFileSync(join(frpDir, 'frpc'), Buffer.from('ELF-LINUX-FAKE'))
+    writeFileSync(join(frpDir, 'frpc.exe'), Buffer.from('MZ-WIN-FAKE'))
+    const mk = (fd) => Object.fromEntries(makeRoutes({ store, provisioner: new FakeProvisioner(),
+      sshStorePath: join(dir, 'dsh-ssh.json'), baseUrl: () => 'https://d.trycloudflare.com', frpDir: fd, now: () => 5000 }).map(r => [r.path, r.handler]))
+    const byPath = mk(frpDir)
+
+    const r1 = res()  // linux,经隧道域名(机器入网下载)
+    await byPath['/api/fleet/frpc'](req({ url: '/api/fleet/frpc', remoteAddress: '127.0.0.1', host: 'x.trycloudflare.com' }), r1)
+    assert.equal(r1.statusCode, 200)
+    assert.equal(r1.headers['content-type'], 'application/octet-stream')
+    assert.equal(String(r1.body), 'ELF-LINUX-FAKE')
+
+    const r2 = res()  // windows
+    await byPath['/api/fleet/frpc'](req({ url: '/api/fleet/frpc?os=win', remoteAddress: '127.0.0.1', host: '127.0.0.1:3080' }), r2)
+    assert.equal(r2.statusCode, 200)
+    assert.equal(String(r2.body), 'MZ-WIN-FAKE')
+
+    const r3 = res()  // 缺失目录 → 404
+    await mk(join(dir, 'nope'))['/api/fleet/frpc'](req({ url: '/api/fleet/frpc', remoteAddress: '127.0.0.1', host: '127.0.0.1:3080' }), r3)
+    assert.equal(r3.statusCode, 404)
+
+    const r4 = res()  // 裸 LAN → 403
+    await byPath['/api/fleet/frpc'](req({ url: '/api/fleet/frpc', remoteAddress: '192.168.1.9', host: '192.168.1.44:3080' }), r4)
+    assert.equal(r4.statusCode, 403)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
 test('request → list → approve → machine enrolled; status pending then approved', async () => {
