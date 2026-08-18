@@ -48,6 +48,14 @@ test('buildWorldPatch: 传 port 覆盖 webserver 端口 + 绑 127.0.0.1(避开�
   assert.ok(!buildWorldPatch({ login: 'u@h', sshArgs: [], cwd: '/tmp' }).includes('- id: webserver'))
 })
 
+test('buildWorldPatch: 传 trustedHost 加进 connection.trustedHosts(保留 runtime 默认)', () => {
+  const p = buildWorldPatch({ login: 'u@h', sshArgs: [], cwd: '/tmp' }, 34567, 'legend-x.trycloudflare.com')
+  assert.ok(p.includes('- id: connection'), 'connection 覆盖项')
+  assert.ok(p.includes("'legend-x.trycloudflare.com'"), '本实例域名')
+  assert.ok(p.includes('...ctx.webRuntime.trustedHosts'), '保留 runtime 默认(loopback 信任)')
+  assert.ok(!buildWorldPatch({ login: 'u@h', sshArgs: [], cwd: '/tmp' }, 1).includes('- id: connection'), '不传 trustedHost 则无')
+})
+
 test('descFromFleetMachine: posix 直连机器(无 proxyJump → 无 ProxyCommand)', () => {
   const d = descFromFleetMachine({ os: 'linux' }, { host: '10.0.0.5', port: 22, user: 'bob', auth: { keyPath: '/k' }, proxyJump: [] }, null)
   assert.equal(d.platform, 'posix')
