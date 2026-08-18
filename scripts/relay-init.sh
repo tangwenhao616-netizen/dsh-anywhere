@@ -38,6 +38,10 @@ Match User ${TUNNEL_USER}
     PermitTTY no
     AllowAgentForwarding no
     ForceCommand /usr/sbin/nologin
+    # 快速回收死掉的反向隧道客户端(15x2=30s,而非默认 90s):隧道断线时中继尽快
+    # 释放转发口,机器重连才不会撞"端口占用"→ExitOnForwardFailure→循环抖动(治 flapping)。
+    ClientAliveInterval 15
+    ClientAliveCountMax 2
 EOF
 
 # 3) root-owned 助手
