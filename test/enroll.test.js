@@ -123,7 +123,7 @@ test('enrollCore rejects when relay not configured', async () => {
   } finally { c.cleanup() }
 })
 
-test('frp 模式:relay 配了 frpToken → 结果带 frp 字段、transport=frp、不推隧道密钥到中继', async () => {
+test('frp 模式:relay 配了 frpToken → 结果带 frp 字段、transport=frp、仍推隧道密钥(回退兜底)', async () => {
   const c = ctx()
   try {
     c.store.update(f => { f.relay = { ...f.relay, frpToken: 'SECRET_FRP_TOK', frpPort: 443, frpProtocol: 'tcp' } })
@@ -136,7 +136,8 @@ test('frp 模式:relay 配了 frpToken → 结果带 frp 字段、transport=frp�
     assert.equal(res.frpProtocol, 'tcp')
     assert.equal(res.relayHost, 'relay.example', 'frpServerAddr 复用 relayHost')
     assert.equal(res.port, 20001, 'remotePort 复用 port')
-    assert.deepEqual(prov.pushed, [], 'frp 不调 pushTunnelKey')
+    assert.deepEqual(prov.pushed, [{ pubkey: 'ssh-ed25519 AAAA frp', port: 20001 }],
+      'frp 模式也推隧道密钥——机器网络封 frps 端口时 bootstrap 自动回退 ssh -R 的前提')
     const m = c.store.load().machines[0]
     assert.equal(m.transport, 'frp')
     // dsh-ssh 主机条目不变:仍 127.0.0.1:port 经 ProxyJump
