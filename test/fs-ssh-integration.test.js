@@ -1,26 +1,35 @@
-// fs-ssh 集成测:对着真实远程机(中继)跑全部方法 + ControlMaster 连接复用。
-// 中继不可达时整组 skip(不让离线 CI 失败)。
+// fs-ssh integration test: run every method against a REAL remote host + ControlMaster reuse.
+// Set DSH_ANYWHERE_RELAY=user@host (and optionally DSH_ANYWHERE_KEY=/path/to/key) to run.
+// Unset (e.g. in CI) or unreachable → the whole suite skips, so offline CI stays green.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SshConn } from '../lib/ssh-conn.js'
 import { SshFsCore } from '../lib/ssh-fs-core.js'
 
-const RELAY = {
-  login: 'ubuntu@175.24.133.218',
-  sshArgs: ['-i', '/home/wl/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new'],
+const LOGIN = process.env.DSH_ANYWHERE_RELAY
+const KEY = process.env.DSH_ANYWHERE_KEY
+const RELAY = LOGIN && {
+  login: LOGIN,
+  sshArgs: [
+    ...(KEY ? ['-i', KEY] : []),
+    '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
+    '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=6',
+  ],
 }
 let reachable = false
-try {
-  const r = await new SshConn(RELAY).run('echo ok')
-  reachable = r.code === 0 && r.stdout.toString('utf8').trim() === 'ok'
-} catch { reachable = false }
-const skip = reachable ? false : '中继不可达,跳过集成测'
+if (RELAY) {
+  try {
+    const r = await new SshConn(RELAY).run('echo ok')
+    reachable = r.code === 0 && r.stdout.toString('utf8').trim() === 'ok'
+  } catch { reachable = false }
+}
+const skip = RELAY && reachable ? false : 'set DSH_ANYWHERE_RELAY=user@host to run integration tests'
 
-const conn = new SshConn(RELAY)
-const core = new SshFsCore({ conn, cwd: '/tmp' })
+const conn = RELAY ? new SshConn(RELAY) : null
+const core = RELAY ? new SshFsCore({ conn, cwd: '/tmp' }) : null
 const NAME = `dsh-fsit-${process.pid}.txt`
 
-test('全方法端到端(resolve/write/stat/read/list/edit/readBytes/lstat/版本守卫)', { skip }, async () => {
+test('all methods e2e (resolve/write/stat/read/list/edit/readBytes/lstat/version guard)', { skip }, async () => {
   const t = await core.resolve(NAME)
   assert.equal(t.targetKey, `/tmp/${NAME}`)
 
@@ -51,19 +60,24 @@ test('全方法端到端(resolve/write/stat/read/list/edit/readBytes/lstat/版�
   await conn.run(`rm -f -- '/tmp/${NAME}'`)
 })
 
-test('缺文件 stat→undefined、readText→FS_NOT_FOUND', { skip }, async () => {
+test('missing file: stat→undefined, readText→FS_NOT_FOUND', { skip }, async () => {
   const t = await core.resolve(`/tmp/nope-${process.pid}-does-not-exist`)
   assert.equal(await core.stat(t), undefined)
   await assert.rejects(() => core.readText(t), e => e.code === 'FS_NOT_FOUND')
 })
 
-test('M6: fs-ssh 经 ProxyJump 双跳(hub→中继→目标)工作 —— 即接 fleet 入网机器的连法', { skip }, async () => {
-  // 用中继当跳板、中继自己的 127.0.0.1 当"目标机",走两跳(等价 hub→中继→fleet机器)。
+test('fs-ssh over ProxyJump double-hop (hub→relay→target) — how a fleet-enrolled machine is reached', { skip }, async () => {
+  // Use the relay as a jump host and its own loopback as the "target", i.e. two hops
+  // (equivalent to hub→relay→fleet-machine).
+  const user = LOGIN.split('@')[0]
   const viaJump = new SshFsCore({
     conn: new SshConn({
-      login: 'ubuntu@127.0.0.1',
-      sshArgs: ['-i', '/home/wl/.ssh/id_rsa', '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
-        '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ProxyJump=ubuntu@175.24.133.218'],
+      login: `${user}@127.0.0.1`,
+      sshArgs: [
+        ...(KEY ? ['-i', KEY] : []),
+        '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
+        '-o', 'StrictHostKeyChecking=accept-new', '-o', `ProxyJump=${LOGIN}`,
+      ],
     }),
     cwd: '/tmp',
   })
@@ -76,12 +90,11 @@ test('M6: fs-ssh 经 ProxyJump 双跳(hub→中继→目标)工作 —— 即接
   await viaJump.conn.run(`rm -f -- '/tmp/${name}'`)
 })
 
-test('ControlMaster 连接复用:20 次 stat 明显快于逐次新连(无握手)', { skip }, async () => {
+test('ControlMaster reuse: 20 stats are far faster than 20 fresh connections (no handshake)', { skip }, async () => {
   const t = await core.resolve('/tmp')
   const start = process.hrtime.bigint()
   for (let i = 0; i < 20; i++) await core.stat(t)
   const perOpMs = Number(process.hrtime.bigint() - start) / 1e6 / 20
-  // 复用连接下每次 stat 应远低于一次全新 ssh 握手(通常 <150ms/次)。
-  console.log(`  每次 stat ≈ ${perOpMs.toFixed(1)}ms(复用连接)`)
-  assert.ok(perOpMs < 400, `每次 stat ${perOpMs}ms 偏高,ControlMaster 可能没生效`)
+  console.log(`  stat ≈ ${perOpMs.toFixed(1)}ms/op (reused connection)`)
+  assert.ok(perOpMs < 400, `stat ${perOpMs}ms/op is high — ControlMaster may not be active`)
 })

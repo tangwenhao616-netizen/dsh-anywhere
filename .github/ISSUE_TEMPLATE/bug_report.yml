@@ -1,0 +1,45 @@
+name: 🐛 Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode?
+      options:
+        - world (execution world / ctx.fs + ctx.subprocess)
+        - fleet (enrollment / reverse tunnel / /fleet panel)
+        - both / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. dsh plugin add dsh-anywhere
+        2. dsh --patch ./workspace-on-machine.patch.yml "..."
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `dsh --version`, `node --version`, `ssh -V`, and the target OS.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact any hosts/IPs/keys before pasting.
+      render: shell

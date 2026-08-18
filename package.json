@@ -15,7 +15,7 @@
     "@deepseek-ai/dsh-fs": "*",
     "@deepseek-ai/dsh-subprocess": "*"
   },
-  "files": ["lib/**/*.js", "scripts/**/*.sh", "examples/**/*.yml", "cordis.patch.yml", "README.md", "LICENSE"],
+  "files": ["lib/**/*.js", "scripts/**/*.sh", "examples/**/*.yml", "cordis.patch.yml", "README.md", "README.zh-CN.md", "CONTRIBUTING.md", "LICENSE"],
   "scripts": {
     "test": "node --test"
   },

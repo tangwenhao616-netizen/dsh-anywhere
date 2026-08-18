@@ -11,8 +11,8 @@ function tmp() {
 }
 
 const entry = {
-  alias: 'fleet-pc', host: '127.0.0.1', port: 20001, user: 'wl',
-  auth: { kind: 'key', keyPath: '/home/wl/.dsh/fleet/keys/pc.op' },
+  alias: 'fleet-pc', host: '127.0.0.1', port: 20001, user: 'alice',
+  auth: { kind: 'key', keyPath: '/home/alice/.dsh/fleet/keys/pc.op' },
   proxyJump: ['relay-jump'], tags: ['fleet'], description: '公网入网机器(dsh-fleet)',
 }
 
