@@ -1,23 +1,27 @@
 {
-  "name": "dsh-ssh-world",
-  "description": "Make a dsh session's execution world a REMOTE machine over SSH: one plugin registers both ctx.fs (fs-ssh over SFTP-style ssh) and ctx.subprocess (subprocess-ssh: spawn/PTY/exec), sharing one ControlMaster connection. Mount it + disable the local fs/subprocess providers, and the agent's read/write/edit/bash/grep tools operate on that machine's files/processes while the model and memory stay on the hub. Same shape as the E2B integration; target any SSH-reachable host (a fleet machine via -o ProxyJump=<relay>). Zero npm deps (system ssh CLI); dsh-fs / dsh-subprocess are peers provided by the harness.",
+  "name": "dsh-anywhere",
+  "description": "Put a dsh (DeepSeek Harness) workspace on ANY machine. Two modes in one plugin: (1) fleet — enroll an off-site machine behind NAT into your dph via a one-time token + reverse tunnel to your own relay VPS, so it appears as a dsh-ssh host; (2) execution world — make a reachable machine the session's ctx.fs + ctx.subprocess so read/write/edit/bash/grep operate on it natively, while the model and memory stay on the hub. Bring a NAT'd machine in with fleet, then promote it to your workspace with the world patch. Zero external npm deps (system ssh CLI); dsh-fs / dsh-subprocess are peers provided by the harness.",
   "version": "0.1.0",
   "type": "module",
-  "main": "lib/index.js",
-  "exports": { ".": "./lib/index.js" },
+  "main": "lib/fleet.js",
+  "exports": {
+    ".": "./lib/fleet.js",
+    "./world": "./lib/world.js"
+  },
   "engines": { "node": "^22.19.0 || >=24.0.0" },
-  "keywords": ["dsh-plugin", "deepseek-harness", "remote", "ssh", "workspace", "execution-world", "filesystem", "subprocess"],
+  "keywords": ["dsh-plugin", "deepseek-harness", "remote", "ssh", "workspace", "execution-world", "filesystem", "subprocess", "fleet", "reverse-tunnel"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
   "peerDependencies": {
     "@deepseek-ai/dsh-fs": "*",
     "@deepseek-ai/dsh-subprocess": "*"
   },
-  "files": ["lib/**/*.js", "examples/**/*.yml", "README.md", "LICENSE"],
+  "files": ["lib/**/*.js", "scripts/**/*.sh", "examples/**/*.yml", "cordis.patch.yml", "README.md", "LICENSE"],
   "scripts": {
     "test": "node --test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tangwenhao616-netizen/dsh-ssh-world.git"
+    "url": "git+https://github.com/tangwenhao616-netizen/dsh-anywhere.git"
   },
   "author": "",
   "license": "MIT"

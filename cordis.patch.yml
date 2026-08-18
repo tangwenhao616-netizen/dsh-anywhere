@@ -1,0 +1,10 @@
+# dsh-anywhere bundle patch(dsh.bundle.patch)。
+# `dsh plugin add dsh-anywhere` 即把 fleet 组网层常驻插入 web profile:
+#   /fleet 面板(待批准/已入网/通过·拒绝·吊销、设中继、加机器命令)、
+#   /join + /api/fleet/* 路由、面向 agent 的组网说明段。
+# 依赖 webServer/systemPrompt 由模块 `export const inject` 声明(与 dsh-ssh 一致)。
+# 入网机器会成为一条 dsh-ssh 主机,用现成 ssh_exec/ssh_upload/... 操作。
+# 要把某台机器进一步升格成"整会话工作区",另用 examples/workspace-on-machine.patch.yml。
+- insert:
+    - id: fleet
+      name: dsh-anywhere

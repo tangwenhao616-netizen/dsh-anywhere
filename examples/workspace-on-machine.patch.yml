@@ -1,18 +1,21 @@
-# dsh-ssh-world 合成补丁(参考;E2B 同款)。把一个 dsh 实例的执行世界整体搬到远程机器:
-# 禁本地 fs/subprocess provider、插 dsh-ssh-world(一个插件同时注册 ctx.fs + ctx.subprocess,
+# dsh-anywhere ·「执行世界」补丁(E2B 同款)。把一个 dsh 实例的执行世界整体搬到远程机器:
+# 禁本地 fs/subprocess provider、插 dsh-anywhere/world(一个插件同时注册 ctx.fs + ctx.subprocess,
 # 共享一条 ControlMaster 连接)、sandbox 放行、cwd/workspaceRoot 统一(一世界不变式)。
-# bash/grep/终端/LSP 自动落远程。
+# 挂上后 agent 的 read/write/edit + bash/grep/终端/LSP 自动落远程。
+#
+# 与 fleet 的关系(缺一不可的旗舰场景):
+#   1) 先用 fleet(装 dsh-anywhere 即常驻)把 NAT 后的异地机器拉进网 → 它成为一条 fleet-* 主机;
+#   2) 再用本补丁把该机器升格为整会话工作区(sshArgs 走 -o ProxyJump=<relay> 经中继够到它)。
+# 目标机器本就可达(公网云主机/局域网)时,直接填直连的 sshArgs,不需要 fleet。
 #
 # 用法:
-#   1) 装插件:dsh plugin --profile <你的profile> add dsh-ssh-world
-#      (或 npm i / link 到该 profile;peerDeps @deepseek-ai/dsh-fs、dsh-subprocess 由 dsh 提供)
+#   1) 装插件:dsh plugin --profile <你的profile> add dsh-anywhere
 #   2) 从"远程 cwd 对应的本地占位目录"启动,并放行审批:
 #      DSH_PERMISSION_MODE=danger-full-access \
-#        dsh --profile <你的profile> --patch ./ssh-world.patch.yml "任务"
+#        dsh --profile <你的profile> --patch ./workspace-on-machine.patch.yml "任务"
 #      (会话 cwd 须与下面的 cwd / workspaceRoot 同指一个远程目录)
 #
 # 已验证:agent 的 read/write/edit + bash + grep 全部落在远程机器(真机端到端)。
-# 接 fleet 入网机器:把 sshArgs 换成该机器的连法(含 -o ProxyJump=<relay-login> 经中继)。
 
 - id: fs-sandbox
   disabled: true
@@ -24,7 +27,7 @@
     workspaceRoot: /remote/workspace      # = 下面的 cwd
 - insert:
     - id: ssh-world
-      name: dsh-ssh-world
+      name: dsh-anywhere/world
       config:
         login: 'user@fleet-machine'
         sshArgs:
