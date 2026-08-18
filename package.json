@@ -1,14 +1,24 @@
 {
-  "name": "dsh-fs-ssh-poc",
-  "description": "POC: SSH-backed dsh FileSystem (ctx.fs). The agent's read/write/edit/ls tools operate on a REMOTE machine's files over the system ssh CLI (base64-into-remote-script, zero deps). Foundation for 'dsh workspace on a fleet machine' (the SSH execution world).",
-  "version": "0.0.1",
-  "private": true,
+  "name": "dsh-ssh-world",
+  "description": "Make a dsh session's execution world a REMOTE machine over SSH: one plugin registers both ctx.fs (fs-ssh over SFTP-style ssh) and ctx.subprocess (subprocess-ssh: spawn/PTY/exec), sharing one ControlMaster connection. Mount it + disable the local fs/subprocess providers, and the agent's read/write/edit/bash/grep tools operate on that machine's files/processes while the model and memory stay on the hub. Same shape as the E2B integration; target any SSH-reachable host (a fleet machine via -o ProxyJump=<relay>). Zero npm deps (system ssh CLI); dsh-fs / dsh-subprocess are peers provided by the harness.",
+  "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
   "exports": { ".": "./lib/index.js" },
   "engines": { "node": "^22.19.0 || >=24.0.0" },
-  "scripts": {
-    "probe:relay": "node test/probe-relay.mjs"
+  "keywords": ["dsh-plugin", "deepseek-harness", "remote", "ssh", "workspace", "execution-world", "filesystem", "subprocess"],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-fs": "*",
+    "@deepseek-ai/dsh-subprocess": "*"
   },
+  "files": ["lib/**/*.js", "examples/**/*.yml", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/dsh-ssh-world.git"
+  },
+  "author": "",
   "license": "MIT"
 }
